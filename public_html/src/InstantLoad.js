@@ -36,11 +36,11 @@
 
             this.parseLinks();
 
-            window.onpopstate = function (e) {
+            window.addEventListener("popstate", function (e) {
                 e.preventDefault();
                 var href = e.originalTarget.document.URL;
                 InstantLoad.loadPage(href);
-            };
+            });
         },
 
 
@@ -51,7 +51,8 @@
          */
         parseLinks: function () {
             $("a").each(function () {
-                if (typeof $(this).attr("href") !== "undefined" && $(this).attr("target") !== "_blank" && $(this).attr("data-il-ignore") !== true && $(this).attr("data-il-ignore") !== "1") {
+                if (typeof $(this).attr("href") !== "undefined" && $(this).attr("target") !== "_blank" && $(this).attr("data-il-ignore") !== true && $(this).attr("data-il-ignore") !== "1" && $(this).attr("data-il-processed") !== "1") {
+                    $(this).attr("data-il-processed", "1");
                     $(this).click(function (e) {
                         e.preventDefault();
                         
@@ -83,7 +84,7 @@
                     type:   "get",
                     url:    href + "?instant=1",
                     cache:  false,
-                    async:  false,
+                    async:  true,
                     success: function (data) {
                         var contentSection = InstantLoad.getContentSection();
                         var fadeTime = InstantLoad.getFadeTime();
@@ -176,12 +177,6 @@
         },
         
         
-        /**
-         * Possibility to call global functions
-         * 
-         * @param string id
-         * @returns void
-         */
         callFn: function (id) {
             var objects = id.split(".");
             var obj = window;
