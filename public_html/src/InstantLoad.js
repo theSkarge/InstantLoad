@@ -30,8 +30,8 @@
          * 
          * @returns void
          */
-        init: function () {
-            if (contentSection === null)
+        init: function () { 
+           if (contentSection === null)
                 contentSection = "#content";
 
             this.parseLinks();
@@ -54,8 +54,13 @@
                 if (typeof $(this).attr("href") !== "undefined" && $(this).attr("target") !== "_blank" && $(this).attr("data-il-ignore") !== true && $(this).attr("data-il-ignore") !== "1") {
                     $(this).click(function (e) {
                         e.preventDefault();
-                        console.log("Link: " + $(this).attr("href"));
-                        InstantLoad.loadPage($(this).attr("href"));
+                        
+                        if (typeof $(this).attr("data-il-callbackFn") !== "undefined") {
+                            InstantLoad.loadPage($(this).attr("href"), $(this).attr("data-il-callbackFn"), true);
+                        }
+                        else
+                            InstantLoad.loadPage($(this).attr("href"));
+                        
                     });
                 }
             });
@@ -68,11 +73,12 @@
          * 
          * @param string href
          * @param function callbackFn
+         * @param boolean globalFn
          * @returns void
          */
-        loadPage: function (href, callbackFn) {
+        loadPage: function (href, callbackFn, globalFn) {
             if (href !== "") {
-                this.addHistory(href);
+                this.addHistory(this.prepareHistoryHref(href));
                 $.ajax({
                     type:   "get",
                     url:    href + "?instant=1",
@@ -85,7 +91,11 @@
                         $(contentSection).fadeOut(fadeTime, function () {
                             $(contentSection).html(data);
                             if (typeof callbackFn !== "undefined") {
-                                callbackFn();
+                                if (globalFn === true) {
+                                    InstantLoad.callFn(callbackFn);
+                                }
+                                else
+                                    callbackFn();
                             }
                             $(contentSection).fadeIn(fadeTime, function () {
                                 InstantLoad.parseLinks();
@@ -149,6 +159,38 @@
          */
         setFadeTime: function (fadeTime) {
             fadeTime = fadeTime;
+        },
+        
+        
+        /**
+         * Prepares a href string for use in history, removing all unwanted stuff (like instant=1)
+         * 
+         * @param string href
+         * @returns string
+         */
+        prepareHistoryHref: function (href) {
+            href = href.replace("?instant=1", "");
+            href = href.replace("&instant=1", "");
+            
+            return href;
+        },
+        
+        
+        /**
+         * Possibility to call global functions
+         * 
+         * @param string id
+         * @returns void
+         */
+        callFn: function (id) {
+            var objects = id.split(".");
+            var obj = window;
+
+            for (var i = 0, len = objects.length; i < len && obj; i++)
+                obj = obj[objects[i]];
+
+            if (typeof obj === "function")
+                obj();
         }
     };
     
