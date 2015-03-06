@@ -16,9 +16,30 @@
     /*
      * Private variables
      */
+    var debug           = 0;
+    
     var contentSection  = null;
+    var changePageTitle = true;
+    var pageTitleDomId  = null;
+    var pageTitleBase   = null;
+    
+    var showFadeFx      = true;
     var fadeTime        = 100;
     
+    
+    function updatePageTitle () {
+        if (debug === 1)
+            console.log("InstantLoad::updatePageTitle()");
+        
+        if (changePageTitle === true) {
+            if (typeof pageTitleDomId !== "undefined" && pageTitleDomId !== "") {
+                var title = $("#" + pageTitleDomId).html();
+                
+                if (title !== "undefind")
+                    document.title = pageTitleBase + title;
+            }
+        }
+    }
     
     /*
      * Main Implementation
@@ -28,9 +49,12 @@
         /**
          * Initializing function
          * 
-         * @returns void
+         * @returns {Void}
          */
         init: function () { 
+            if (debug === 1)
+                console.log("InstantLoad::init()");
+        
            if (contentSection === null)
                 contentSection = "#content";
 
@@ -39,7 +63,7 @@
             window.addEventListener("popstate", function (e) {
                 e.preventDefault();
                 var href = e.originalTarget.document.URL;
-                InstantLoad.loadPage(href);
+                InstantLoad.loadPage(href, true);
             });
         },
 
@@ -47,9 +71,12 @@
         /**
          * Parse current a tags for links and place click handler
          * 
-         * @returns void
+         * @returns {Void}
          */
         parseLinks: function () {
+            if (debug === 1)
+                console.log("InstantLoad::parseLinks()");
+            
             $("a").each(function () {
                 if (typeof $(this).attr("href") !== "undefined" && $(this).attr("target") !== "_blank" && $(this).attr("data-il-ignore") !== true && $(this).attr("data-il-ignore") !== "1" && $(this).attr("data-il-processed") !== "1") {
                     $(this).attr("data-il-processed", "1");
@@ -57,7 +84,7 @@
                         e.preventDefault();
                         
                         if (typeof $(this).attr("data-il-callbackFn") !== "undefined") {
-                            InstantLoad.loadPage($(this).attr("href"), $(this).attr("data-il-callbackFn"), true);
+                            InstantLoad.loadPage($(this).attr("href"), false, $(this).attr("data-il-callbackFn"), true);
                         }
                         else
                             InstantLoad.loadPage($(this).attr("href"));
@@ -72,25 +99,53 @@
          * Load given URL and display retreived content into contentSection. 
          * If defined callbackFn will be called.
          * 
-         * @param string href
-         * @param function callbackFn
-         * @param boolean globalFn
-         * @returns void
+         * @param {String} href
+         * @param {Function} callbackFn
+         * @param {Boolean} globalFn
+         * @returns {Void}
          */
-        loadPage: function (href, callbackFn, globalFn) {
+        loadPage: function (href, noHistory, callbackFn, globalFn) {
+            if (debug === 1)
+                console.log("InstantLoad::loadPage()");
+            
             if (href !== "") {
-                this.addHistory(this.prepareHistoryHref(href));
+                if (typeof noHistory === "undefined" || noHistory !== true)
+                    noHistory = false;
+                
                 $.ajax({
                     type:   "get",
                     url:    href + "?instant=1",
                     cache:  false,
-                    async:  true,
+                    async:  false,
                     success: function (data) {
                         var contentSection = InstantLoad.getContentSection();
                         var fadeTime = InstantLoad.getFadeTime();
 
-                        $(contentSection).fadeOut(fadeTime, function () {
+                        if (noHistory !== true) {
+                            InstantLoad.addHistory(data, "", InstantLoad.prepareHistoryHref(href));
+                        }
+
+                        if (showFadeFx === true) {
+                            $(contentSection).fadeOut(fadeTime, function () {
+                                $(contentSection).html(data);
+                                updatePageTitle();
+                                
+                                if (typeof callbackFn !== "undefined") {
+                                    if (globalFn === true) {
+                                        InstantLoad.callFn(callbackFn);
+                                    }
+                                    else
+                                        callbackFn();
+                                }
+                                $(contentSection).fadeIn(fadeTime, function () {
+                                    InstantLoad.parseLinks();
+                                });
+                            });
+                        }
+                        else {
                             $(contentSection).html(data);
+                            updatePageTitle();
+                            
                             if (typeof callbackFn !== "undefined") {
                                 if (globalFn === true) {
                                     InstantLoad.callFn(callbackFn);
@@ -98,10 +153,9 @@
                                 else
                                     callbackFn();
                             }
-                            $(contentSection).fadeIn(fadeTime, function () {
-                                InstantLoad.parseLinks();
-                            });
-                        });
+                            
+                            InstantLoad.parseLinks();
+                        }
                     },
                     error: function () {
                         alert ("Error");
@@ -114,20 +168,26 @@
         /**
          * Add URL to History API
          * 
-         * @param string href
-         * @returns void
+         * @param {String} href
+         * @returns {Void}
          */
-        addHistory: function (href) {
-            history.pushState(null, null, href);
+        addHistory: function (data, title, href) {
+            if (debug === 1)
+                console.log("InstantLoad::addHistory()");
+            
+            history.pushState(data, title, href);
         },
 
 
         /**
          * Get currently used content section ID
          * 
-         * @returns string
+         * @returns {String}
          */
         getContentSection: function () {
+            if (debug === 1)
+                console.log("InstantLoad::getContentSection()");
+            
             return contentSection;
         },
 
@@ -135,10 +195,13 @@
         /**
          * Set new content section ID
          * 
-         * @param string section
-         * @returns void
+         * @param {String} section
+         * @returns {Void}
          */
         setContentSection: function (section) {
+            if (debug === 1)
+                console.log("InstantLoad::setContentSection()");
+            
             contentSection = section;
         },
 
@@ -146,30 +209,91 @@
         /**
          * Get current fade time value
          * 
-         * @returns integer
+         * @returns {Number}
          */
         getFadeTime: function () {
+            if (debug === 1)
+                console.log("InstantLoad::getFadeTime()");
+            
             return fadeTime;
         },
 
         /**
          * Set new fade time
          * 
-         * @param integer fadeTime
-         * @returns void
+         * @param {Integer} fadeTime
+         * @returns {Void}
          */
-        setFadeTime: function (fadeTime) {
-            fadeTime = fadeTime;
+        setFadeTime: function (newFadeTime) {
+            if (debug === 1)
+                console.log("InstantLoad::setFadeTime('" + newFadeTime + "')");
+            
+            fadeTime = newFadeTime;
+        },
+        
+        
+        /**
+         * Get current DOM id to get the page title from
+         * 
+         * @returns {String}
+         */
+        getPageTitleDomId: function () {
+            if (debug === 1)
+                console.log("InstantLoad::getPageTitleDomId()");
+            
+            return pageTitleDomId;
+        },
+        
+        /**
+         * Set the new DOM id for future page title loadings
+         * 
+         * @param {String} newPageTitleDomId
+         * @returns {Void}
+         */
+        setPageTitleDomId: function (newPageTitleDomId) {
+            if (debug === 1)
+                console.log("InstantLoad::setPageTitleDomId('" + newPageTitleDomId + "')");
+            
+            pageTitleDomId = newPageTitleDomId;
+        },
+        
+        
+        /**
+         * Get current DOM id to get the page title from
+         * 
+         * @returns {String}
+         */
+        getPageTitleBase: function () {
+            if (debug === 1)
+                console.log("InstantLoad::getPageTitleBase()");
+            
+            return pageTitleBase;
+        },
+        
+        /**
+         * Set the new DOM id for future page title loadings
+         * 
+         * @param {String} newPageTitleBase
+         * @returns {Void}
+         */
+        setPageTitleBase: function (newPageTitleBase) {
+            if (debug === 1)
+                console.log("InstantLoad::init()");
+            
+            pageTitleBase = newPageTitleBase;
         },
         
         
         /**
          * Prepares a href string for use in history, removing all unwanted stuff (like instant=1)
          * 
-         * @param string href
-         * @returns string
+         * @param {String} href
+         * @returns {String}
          */
         prepareHistoryHref: function (href) {
+            if (debug === 1)
+                console.log("InstantLoad::prepareHistoryHref()");
+            
             href = href.replace("?instant=1", "");
             href = href.replace("&instant=1", "");
             
@@ -177,7 +301,16 @@
         },
         
         
+        /**
+         * 
+         * 
+         * @param {String} id
+         * @returns {Void}
+         */
         callFn: function (id) {
+            if (debug === 1)
+                console.log("InstantLoad::callFn()");
+            
             var objects = id.split(".");
             var obj = window;
 
